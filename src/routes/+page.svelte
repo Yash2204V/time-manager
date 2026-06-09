@@ -1,113 +1,85 @@
 <script>
-	import alarmFile from '$lib/assets/alarm.mp3';
+	import { AlarmActions, alarmState } from '$lib/store/alarm';
+	import { dispatch } from '$lib/store/alarm/dispatcher';
+	import alarmMp3 from '$lib/assets/alarm.mp3';
+	import { formatRealTime } from '$lib/store/clock/mapper';
 
-	let currentTime = $state(new Date());
-	let alarmTime = $state('');
-	let isAlarmSet = $state(false);
-	let isTriggered = $state(false);
-
-	let alarmSound;
+	let timeInput = $state('');
+	let alarmAudio;
 
 	$effect(() => {
-		alarmSound = new Audio(alarmFile);
-		alarmSound.loop = true;
+		if (!alarmAudio) {
+			alarmAudio = new Audio(alarmMp3);
+			alarmAudio.loop = true;
+		}
 
-		const interval = setInterval(() => {
-			currentTime = new Date();
-			checkAlarm();
-		}, 1000);
-
-		return () => {
-			clearInterval(interval);
-			if (alarmSound) alarmSound.pause();
-		};
+		if (alarmState.isRinging) {
+			alarmAudio.play().catch((error) => console.error(error));
+		} else {
+			alarmAudio.pause();
+			alarmAudio.currentTime = 0;
+		}
+		return () => alarmAudio.pause();
 	});
 
-	function formatTime(date) {
-		const hh = String(date.getHours()).padStart(2, '0');
-		const mm = String(date.getMinutes()).padStart(2, '0');
-		return `${hh}:${mm}`;
-	}
+	$effect(() => {
+		if (alarmState.isAlarmEnabled && !alarmState.isRinging) {
+			const checkInterval = setInterval(() => {
+				const timeNow = new Date();
+				const hours = timeNow.getHours().toString().padStart(2, '0');
+				const minutes = timeNow.getMinutes().toString().padStart(2, '0');
+				const currentTimeString = `${hours}:${minutes}`;
 
-	function checkAlarm() {
-		if (!isAlarmSet || !alarmTime || !alarmSound) return;
+				// Agar current time aur set kiya hua time match ho jaye
+				if (currentTimeString === alarmState.targetAlarmTime) {
+					dispatch({ type: AlarmActions.RING });
+				}
+			}, 1000);
 
-		if (formatTime(currentTime) === alarmTime) {
-			isTriggered = true;
-			isAlarmSet = false;
-			alarmSound.play().catch(err => {
-				console.log("Audio playback blocked. Interact with the page first.", err);
-			});
+			// Clean Code: Memory leak se bachne ke liye hamesha interval clean karo
+			return () => clearInterval(checkInterval);
 		}
-	}
+	});
 
-	function setAlarm() {
-		if (alarmTime) {
-			isAlarmSet = true;
-			isTriggered = false;
-		}
-	}
+	function handleSetAlarm() {
+		if (timeInput) {
+			dispatch({ type: AlarmActions.SET, payload: timeInput });
 
-	function clearAlarm() {
-		isAlarmSet = false;
-		isTriggered = false;
-		alarmTime = '';
-		if (alarmSound) {
-			alarmSound.pause();
-			alarmSound.currentTime = 0;
-		}
-	}
-
-	function dismissAlarm() {
-		isTriggered = false;
-		if (alarmSound) {
-			alarmSound.pause();
-			alarmSound.currentTime = 0;
+			if (!alarmState.isAlarmEnabled) {
+				dispatch({ type: AlarmActions.TOGGLE });
+			}
 		}
 	}
 </script>
 
-<div class="alarm-clock">
+<div class="p-4">
+	<h2 class="mb-4 text-2xl font-bold">Alarm</h2>
 
-	{#if !isAlarmSet && !isTriggered}
-		<div class="control-group">
-			<input type="time" bind:value={alarmTime} />
-			<button onclick={setAlarm}>Set Alarm</button>
-		</div>
-	{:else if isAlarmSet}
-		<p>Alarm set for: {alarmTime}</p>
-		<button onclick={clearAlarm}>Cancel</button>
+	<div class="mb-6 flex items-center gap-2">
+		<input type="time" bind:value={timeInput} class="rounded border border-black p-2" />
+		<button
+			class="rounded bg-blue-500 px-4 py-2 font-bold text-white shadow"
+			onclick={handleSetAlarm}
+		>
+			Set Alarm
+		</button>
+	</div>
+
+	{#if alarmState.isAlarmEnabled}
+		<p class="font-medium text-gray-600">
+			Alarm is set for: <span class="text-black">{alarmState.targetAlarmTime}</span>
+		</p>
 	{/if}
 
-	{#if isTriggered}
-		<div class="alarm-modal">
-			<h2>⏰ WAKE UP! ⏰</h2>
-			<button onclick={dismissAlarm}>Dismiss</button>
+	{#if alarmState.isRinging}
+		<div class="mt-4 rounded border border-red-500 bg-red-100 p-4">
+			<p class="animate-pulse font-bold text-red-700">Alarm is Ringing!</p>
+			<button
+				class="mt-2 rounded bg-red-500 px-4 py-2 text-white shadow"
+				onclick={() => dispatch({ type: AlarmActions.STOP })}
+			>
+				Stop Alarm
+			</button>
 		</div>
 	{/if}
 </div>
-
-<style>
-	.alarm-clock {
-		text-align: center;
-		font-family: sans-serif;
-		padding: 2rem;
-		border: 1px solid #ccc;
-		border-radius: 8px;
-		max-width: 300px;
-		margin: auto;
-	}
-	.alarm-modal {
-		margin-top: 1rem;
-		background: #ffcccc;
-		padding: 1rem;
-		border-radius: 4px;
-		animation: flash 1s infinite alternate;
-	}
-	@keyframes flash {
-		from { background: #ffcccc; }
-		to { background: #ff6666; }
-	}
-	.alarm-modal h2 { margin: 0 0 1rem 0; color: #cc0000; }
-	button { padding: 8px 16px; cursor: pointer; }
-</style>

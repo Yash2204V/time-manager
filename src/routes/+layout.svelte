@@ -1,32 +1,38 @@
 <script lang="ts">
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
-	import { TimeState } from '$lib/state/time.svelte'
+	import logo from '$lib/assets/logo.png';
+	import { formatRealTime } from '$lib/store/clock/mapper';
 
-    let alarm = new TimeState();
-    alarm.start();
-
+	let currentTime = $state(new Date());
 	let { children } = $props();
+
+	$effect(() => {
+		const interval = setInterval(() => {
+			currentTime = new Date();
+		}, 1000);
+
+		return () => clearInterval(interval);
+	});
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" href={logo} />
 </svelte:head>
 
-<div class="w-full flex items-center flex-col">
-	<div class="p-2 w-full sm:w-1/2">
-		<nav class="flex text-xs font-semibold justify-between">
-			<div class="gap-3 flex">
-				<a class="underline hover:text-blue-600 text-blue-400" href="/">Home</a>
-				<a class="underline hover:text-blue-600 text-blue-400" href="/timer">Timer</a>
+<div class="flex w-full flex-col items-center">
+	<div class="w-full p-2 sm:w-1/2">
+		<nav class="flex items-center justify-between text-xl font-semibold">
+			<div class="flex items-center gap-3">
+				<img src={logo} width="50" alt="" srcset="" />
+				<a class="text-black hover:text-blue-950 hover:underline" href="/">Home</a>
+				<a class="text-black hover:text-blue-950 hover:underline" href="/timer">Timer</a>
 			</div>
 
-			<div>{alarm.formatter.format(alarm.date)}</div>
+			<div>{formatRealTime(currentTime)}</div>
 		</nav>
 
-		<div class="w-full h-0.5 bg-black my-2"></div>
+		<div class="my-4 h-0.5 w-full bg-black"></div>
 
 		{@render children()}
-
 	</div>
 </div>
