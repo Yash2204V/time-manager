@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.tera.timemanager',
-  appName: 'TimeManager',
+  appName: 'Time Manager',
   webDir: 'build'
 };
 
